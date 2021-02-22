@@ -3,6 +3,8 @@
 import sys
 import time
 import json
+import requests
+
 from web3 import Web3
 from web3.middleware import geth_poa_middleware
 
@@ -62,17 +64,26 @@ for vault_addr in sys.argv[2:]:
 print("===================")
 
 while True:
+    r = requests.get('https://api.autofarm.network/bsc/get_stats')
+    stats = json.loads(r.content)
+    print("AUTO price: $%f\n" % stats['priceAUTO'])
+
+    r = requests.get('https://api.autofarm.network/bsc/get_farms_data')
+    farms_data = json.loads(r.content)
+
     total_pending = 0.0
 
     for vault in vaults:
         amount = autofarm_v2.functions.stakedWantTokens(vault['pid'], my_addr).call() / float(vault['want_decimals'])
-        print("staked %s amount: %f" % (vault['want_symbol'], amount))
+        want_price = farms_data['pools'][str(vault['pid'])]['wantPrice']
+        print("%s price: $%f" % (vault['want_symbol'], want_price))
+        print("staked %s amount: %f ($%f)" % (vault['want_symbol'], amount, amount * want_price))
 
         pending = autofarm_v2.functions.pendingAUTO(vault['pid'], my_addr).call() / float(auto_decimals)
-        print("pending %s reward: %f" % (auto_symbol, pending))
+        print("pending %s reward: %f ($%f)\n" % (auto_symbol, pending, pending * stats['priceAUTO']))
         total_pending += pending
 
-    print("\ntotal pending %s reward: %f" % (auto_symbol, total_pending))
+    print("total pending %s reward: %f ($%f)" % (auto_symbol, total_pending, total_pending * stats['priceAUTO']))
     print("===================")
 
     time.sleep(60)
